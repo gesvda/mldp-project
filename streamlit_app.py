@@ -121,9 +121,9 @@ if st.button("Predict Resale Price"):
 
     # Align EXACTLY with training columns
     df_input = df_input.reindex(
-        columns=model_columns,
-        fill_value=0
-    )
+    columns=model_columns,
+    fill_value=0
+)
 
     df_input = df_input.astype(float)
 
@@ -162,3 +162,4 @@ h1, h2, h3, h4, h5, h6, p, label, div {
 
 </style>
 """, unsafe_allow_html=True)
+
