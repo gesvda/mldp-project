@@ -114,16 +114,30 @@ if st.button("Predict Resale Price"):
     })
 
     # One-hot encode
-    df_input = pd.get_dummies(
-        df_input,
-        columns=["flat_type", "town"]
+    # Create empty dataframe with ALL model columns
+    df_input_encoded = pd.DataFrame(
+        np.zeros((1, len(model_columns))),
+        columns=model_columns
     )
 
-    # Align EXACTLY with training columns
-    df_input = df_input.reindex(
-    columns=model_columns,
-    fill_value=0
-)
+    # Fill numeric values
+    df_input_encoded["floor_area_sqm"] = floor_area_selected
+    df_input_encoded["remaining_lease"] = remaining_lease_selected
+    df_input_encoded["lease_commence_date"] = lease_commence_selected
+
+    # Turn on correct one-hot columns
+    town_col = f"town_{town_selected}"
+    flat_col = f"public_housing_flat_type_{flat_type_selected}"
+
+    if town_col in df_input_encoded.columns:
+        df_input_encoded[town_col] = 1
+
+    if flat_col in df_input_encoded.columns:
+        df_input_encoded[flat_col] = 1
+
+
+    prediction = model.predict(df_input_encoded)[0]
+
 
     df_input = df_input.astype(float)
 
@@ -162,4 +176,5 @@ h1, h2, h3, h4, h5, h6, p, label, div {
 
 </style>
 """, unsafe_allow_html=True)
+
 
