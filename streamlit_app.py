@@ -7,7 +7,7 @@ import gdown
 
 
 # -------------------------------------------------
-# PAGE CONFIG (Must be first Streamlit command)
+# PAGE CONFIG
 # -------------------------------------------------
 st.set_page_config(
     page_title="Singapore HDB Predictor",
@@ -17,8 +17,7 @@ st.set_page_config(
 
 
 # -------------------------------------------------
-# CACHED MODEL LOADING (VERY IMPORTANT)
-# Prevents re-downloading every refresh
+# LOAD MODEL (CACHED)
 # -------------------------------------------------
 @st.cache_resource
 def load_model():
@@ -32,33 +31,26 @@ def load_model():
     return joblib.load(MODEL_PATH)
 
 
-@st.cache_resource
-def load_columns():
-
-    COLUMNS_URL = "https://drive.google.com/uc?id=1rOk2dFRaRtEtFnYI--D1Lbz-wruHfLKL"
-    COLUMNS_PATH = "model_columns.pkl"
-
-    if not os.path.exists(COLUMNS_PATH):
-        gdown.download(COLUMNS_URL, COLUMNS_PATH, quiet=False)
-
-    return joblib.load(COLUMNS_PATH)
-
-
 model = load_model()
-model_columns = load_columns()
 
 
 # -------------------------------------------------
-# BUILD TOWN LIST DIRECTLY FROM MODEL
-# Prevents feature mismatch crashes
+# BUILD OPTIONS DIRECTLY FROM MODEL
+# (Prevents feature mismatch FOREVER)
 # -------------------------------------------------
+model_columns = model.feature_names_in_
+
 towns = sorted([
     col.replace("town_", "")
     for col in model_columns
     if col.startswith("town_")
 ])
 
-flat_types = ["2 ROOM", "3 ROOM", "4 ROOM", "5 ROOM"]
+flat_types = sorted([
+    col.replace("public_housing_flat_type_", "")
+    for col in model_columns
+    if col.startswith("public_housing_flat_type_")
+])
 
 
 # -------------------------------------------------
@@ -72,7 +64,6 @@ st.write(
 )
 
 
-# INPUTS
 town_selected = st.selectbox("Select Town", towns)
 
 flat_type_selected = st.selectbox("Select Flat Type", flat_types)
@@ -100,46 +91,30 @@ lease_commence_selected = st.number_input(
 
 
 # -------------------------------------------------
-# PREDICTION
+# PREDICTION (PRODUCTION SAFE)
 # -------------------------------------------------
 if st.button("Predict Resale Price"):
 
-    # Create dataframe
-    df_input = pd.DataFrame({
-        "floor_area_sqm": [floor_area_selected],
-        "remaining_lease": [remaining_lease_selected],
-        "lease_commence_date": [lease_commence_selected],
-        "flat_type": [flat_type_selected],
-        "town": [town_selected]
-    })
-
-    # One-hot encode
-    # Create empty dataframe with ALL model columns
-    df_input_encoded = pd.DataFrame(
+    # Create EMPTY dataframe matching model EXACTLY
+    df_input = pd.DataFrame(
         np.zeros((1, len(model_columns))),
         columns=model_columns
     )
 
     # Fill numeric values
-    df_input_encoded["floor_area_sqm"] = floor_area_selected
-    df_input_encoded["remaining_lease"] = remaining_lease_selected
-    df_input_encoded["lease_commence_date"] = lease_commence_selected
+    df_input.loc[0, "floor_area_sqm"] = floor_area_selected
+    df_input.loc[0, "remaining_lease"] = remaining_lease_selected
+    df_input.loc[0, "lease_commence_date"] = lease_commence_selected
 
-    # Turn on correct one-hot columns
+    # Activate one-hot columns safely
     town_col = f"town_{town_selected}"
     flat_col = f"public_housing_flat_type_{flat_type_selected}"
 
-    if town_col in df_input_encoded.columns:
-        df_input_encoded[town_col] = 1
+    if town_col in df_input.columns:
+        df_input.loc[0, town_col] = 1
 
-    if flat_col in df_input_encoded.columns:
-        df_input_encoded[flat_col] = 1
-
-
-    prediction = model.predict(df_input_encoded)[0]
-
-
-    df_input = df_input.astype(float)
+    if flat_col in df_input.columns:
+        df_input.loc[0, flat_col] = 1
 
     # Predict
     prediction = model.predict(df_input)[0]
@@ -151,8 +126,7 @@ if st.button("Predict Resale Price"):
 
 
 # -------------------------------------------------
-# BACKGROUND STYLING
-# (Optional but looks VERY professional)
+# BACKGROUND (Nice but optional)
 # -------------------------------------------------
 st.markdown("""
 <style>
@@ -176,5 +150,3 @@ h1, h2, h3, h4, h5, h6, p, label, div {
 
 </style>
 """, unsafe_allow_html=True)
-
-
